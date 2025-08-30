@@ -1,45 +1,26 @@
-<!--test -->
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Pickleball Court – Home</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    html,body{margin:0;height:100%;font-family:sans-serif;background:#0b1320;color:#fff}
-    header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#111827}
-    a{color:#9dd7ff;text-decoration:none}
-    .hero{display:grid;place-items:center;height:calc(100% - 56px)}
-    .card{max-width:800px;width:100%;background:#0f172a;border-radius:14px;overflow:hidden}
-    .img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
-    .pad{padding:18px}
-    h1{margin:0 0 6px}
-    p{margin:0 0 10px;color:#cbd5e1}
-    .btn{display:inline-block;padding:10px 14px;background:#2563eb;color:#fff;border-radius:10px}
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Courtyard - Pickleball Court Reservation</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <strong>🏓 Pickleball Court</strong>
-  <nav><a href="bookings.html">View & Reserve</a></nav>
-</header>
-<main class="hero">
-  <div class="card">
-    <img id="heroImg" class="img" alt="Pickleball court" />
-    <div class="pad">
-      <h1>Reserve our court</h1>
-      <p>Check availability and see booked slots.</p>
-      <a class="btn" href="bookings.html">Open Calendar</a>
-    </div>
-  </div>
-</main>
-<script>
-  const pool = [
-    "https://source.unsplash.com/1600x900/?pickleball,court",
-    "https://images.unsplash.com/photo-1697551290312-3fd041d3b0d2",
-    "https://images.unsplash.com/photo-1708024929841-7a1c2b4c7d7f"
-  ];
-  document.getElementById("heroImg").src = pool[Math.floor(Math.random()*pool.length)];
-</script>
+  <h1>Welcome to Courtyard</h1>
+  <p>Reserve your pickleball court with ease.</p>
+
+  <!-- Random pickleball court image -->
+  <img src="https://upload.wikimedia.org/wikipedia/commons/3/39/Pickleball_court.jpg" 
+       alt="Pickleball Court" 
+       style="max-width: 80%; height: auto; border: 2px solid #333; border-radius: 8px;">
+
+  <br><br>
+
+  <!-- Link to the booking calendar -->
+  <a href="bookings.html" 
+     style="font-size: 1.2em; padding: 10px 20px; background: green; color: white; text-decoration: none; border-radius: 5px;">
+     Go to Reservation Calendar
+  </a>
 </body>
 </html>
