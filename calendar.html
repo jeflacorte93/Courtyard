@@ -1,119 +1,224 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pickleball Court Calendar</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pickleball Bookings (debug)</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 20px;
-    }
-    input[type="date"] {
-      padding: 5px;
-      margin: 10px;
-      font-size: 16px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 10px;
-      text-align: center;
-    }
-    th {
-      background-color: #f4f4f4;
-    }
-    .booked {
-      background-color: #ffdddd;
-      color: red;
-      font-weight: bold;
-    }
-    .available {
-      background-color: #ddffdd;
-      color: green;
-      font-weight: bold;
-    }
-    .error {
-      color: white;
-      background: red;
-      padding: 10px;
-      font-weight: bold;
-      border-radius: 5px;
-      margin-top: 20px;
-    }
+    body{font-family:Arial,Helvetica,sans-serif;margin:18px;color:#111}
+    h1{text-align:center}
+    #controls{display:flex;justify-content:center;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+    input[type="date"]{padding:8px 10px;font-size:15px}
+    button{padding:8px 10px;border-radius:6px;border:1px solid #888;background:#eee;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border:1px solid #ddd;padding:10px;text-align:center}
+    th{background:#f4f4f4}
+    .booked{background:#ffdddd;color:#b00;font-weight:700}
+    .available{background:#ddffdd;color:#060;font-weight:700}
+    .error{background:#b00;color:#fff;padding:10px;border-radius:6px;margin-top:12px}
+    .debug{margin-top:12px;padding:10px;border-radius:6px;background:#f7f7f7;font-size:13px}
+    pre{white-space:pre-wrap;word-break:break-word;font-size:12px}
+    .note{font-size:13px;color:#555;text-align:center;margin-top:8px}
   </style>
 </head>
 <body>
-  <h1>Pickleball Court Reservation Calendar</h1>
+  <h1>Pickleball Court — Reservation Calendar</h1>
 
-  <label for="datePicker"><b>Select Date:</b></label>
-  <input type="date" id="datePicker">
+  <div id="controls">
+    <label for="datePicker"><strong>Select date:</strong></label>
+    <input id="datePicker" type="date" />
+    <button id="reloadBtn">Reload bookings</button>
+    <button id="showRawBtn">Toggle raw JSON</button>
+  </div>
 
-  <div id="calendar">Please select a date to see reservations.</div>
+  <div id="calendar">Please pick a date (or press Reload bookings).</div>
   <div id="error"></div>
 
-  <script>
-    let bookings = [];
+  <div id="debug" class="debug" style="display:none">
+    <strong>Debug info</strong>
+    <div><em>Fetch status / response:</em> <span id="fetchStatus"></span></div>
+    <div><em>Raw response text:</em><pre id="rawText">—</pre></div>
+    <div><em>Parsed JSON type:</em> <span id="parsedType">—</span></div>
+    <div><em>Parsed object preview:</em><pre id="parsedPreview">—</pre></div>
+  </div>
 
-    async function loadBookings() {
-      try {
-        const response = await fetch('bookings.json');
-        if (!response.ok) {
-          throw new Error("Failed to fetch bookings.json (status " + response.status + ")");
-        }
-        let data = await response.json();
+  <div class="note">bookings are read from <code>bookings.json</code> in repo root. Supported formats shown below.</div>
 
-        // ✅ Ensure it's always an array
-        if (!Array.isArray(data)) {
-          console.warn("bookings.json is not an array, fixing it...");
-          data = [];
-        }
+<script>
+(async ()=>{
 
-        bookings = data;
-      } catch (error) {
-        document.getElementById("calendar").innerHTML = "";
-        document.getElementById("error").innerHTML =
-          `<div class="error">⚠️ Error loading bookings: ${error.message}</div>`;
-        console.error("Error loading bookings:", error);
-      }
+  const dateInput = document.getElementById('datePicker');
+  const calendarEl = document.getElementById('calendar');
+  const errorEl = document.getElementById('error');
+  const reloadBtn = document.getElementById('reloadBtn');
+  const showRawBtn = document.getElementById('showRawBtn');
+  const debugEl = document.getElementById('debug');
+  const fetchStatusEl = document.getElementById('fetchStatus');
+  const rawTextEl = document.getElementById('rawText');
+  const parsedTypeEl = document.getElementById('parsedType');
+  const parsedPreviewEl = document.getElementById('parsedPreview');
+
+  // times (24-hour strings) used internally
+  const TIMES = ["08:00","09:00","10:00","11:00","12:00",
+                 "13:00","14:00","15:00","16:00","17:00",
+                 "18:00","19:00","20:00"];
+
+  // default date = today
+  const today = new Date();
+  dateInput.value = today.toISOString().slice(0,10);
+
+  // bookingsMap: { "YYYY-MM-DD" : Set("HH:MM", ...) }
+  let bookingsMap = {};
+
+  // normalize time strings robustly
+  function normalizeTimeStr(t){
+    if (!t && t !== 0) return null;
+    t = String(t).trim();
+    // Already HH:MM 24h and no AM/PM
+    if (/^\d{1,2}:\d{2}$/.test(t) && !/[APMapm]/.test(t)){
+      const [hh,mm] = t.split(':').map(Number);
+      if (hh >= 0 && hh <= 23) return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
     }
+    // AM/PM like 4:00 PM or 04:00am
+    const m = t.match(/^(\d{1,2})(?::(\d{2}))?\s*([AaPp][Mm])$/);
+    if (m){
+      let hh = Number(m[1]);
+      const mm = Number(m[2] ?? 0);
+      const ap = m[3].toUpperCase();
+      if (ap === 'PM' && hh !== 12) hh += 12;
+      if (ap === 'AM' && hh === 12) hh = 0;
+      return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+    }
+    // Digits fallback like 1600 or 4pm
+    const digits = t.replace(/[^0-9]/g,'');
+    if (digits.length === 4){
+      return digits.slice(0,2) + ':' + digits.slice(2);
+    }
+    if (/^\d{1,2}$/.test(digits)){
+      // "4" => 04:00
+      const hh = Number(digits);
+      return String(hh).padStart(2,'0') + ':00';
+    }
+    return null;
+  }
 
-    function renderCalendar(selectedDate) {
-      const hours = [
-        "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
-        "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",
-        "04:00 PM", "05:00 PM", "06:00 PM", "07:00 PM", "08:00 PM"
-      ];
-
-      let html = `<h2>Reservations for ${selectedDate}</h2>`;
-      html += "<table><tr><th>Time</th><th>Status</th></tr>";
-
-      hours.forEach(hour => {
-        const booking = bookings.find(b => b.date === selectedDate && b.time === hour);
-        if (booking) {
-          html += `<tr><td>${hour}</td><td class="booked">BOOKED</td></tr>`;
-        } else {
-          html += `<tr><td>${hour}</td><td class="available">Available</td></tr>`;
-        }
+  function parseBookingsData(data){
+    // returns a bookingsMap object: {date: Set(times)}
+    const map = {};
+    if (Array.isArray(data)){
+      // Two array variations supported:
+      // 1) [ { "date":"2025-09-10", "time":"16:00" }, ... ]
+      // 2) [ { "date":"2025-09-10", "times":["16:00","17:00"] }, ... ]
+      data.forEach(item => {
+        if (!item) return;
+        const date = item.date || item.d;
+        if (!date) return;
+        let times = [];
+        if (Array.isArray(item.times)) times = item.times;
+        else if (item.time) times = [item.time];
+        else if (Array.isArray(item.t)) times = item.t;
+        times.forEach(tRaw => {
+          const t = normalizeTimeStr(tRaw);
+          if (!t) return;
+          map[date] = map[date] || new Set();
+          map[date].add(t);
+        });
       });
-
-      html += "</table>";
-      document.getElementById("calendar").innerHTML = html;
-    }
-
-    document.getElementById("datePicker").addEventListener("change", (e) => {
-      const selectedDate = e.target.value;
-      if (selectedDate) {
-        renderCalendar(selectedDate);
+    } else if (typeof data === 'object' && data !== null){
+      // object mapping: { "2025-09-10": ["16:00","17:00"], ... }
+      for (const [date, times] of Object.entries(data)){
+        if (!Array.isArray(times)) continue;
+        times.forEach(tRaw => {
+          const t = normalizeTimeStr(tRaw);
+          if (!t) return;
+          map[date] = map[date] || new Set();
+          map[date].add(t);
+        });
       }
-    });
+    }
+    return map;
+  }
 
-    loadBookings();
-  </script>
+  async function loadBookings(){
+    errorEl.innerHTML = '';
+    fetchStatusEl.textContent = 'Fetching...';
+    rawTextEl.textContent = '—';
+    parsedTypeEl.textContent = '—';
+    parsedPreviewEl.textContent = '—';
+    try {
+      const res = await fetch('bookings.json', { cache: 'no-store' });
+      fetchStatusEl.textContent = `HTTP ${res.status} ${res.statusText}`;
+      const text = await res.text();
+      rawTextEl.textContent = text || '(empty response)';
+      if (!text) {
+        // gracefully accept empty file -> no bookings
+        bookingsMap = {};
+        parsedTypeEl.textContent = 'empty';
+        parsedPreviewEl.textContent = '{}';
+        return;
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (pe){
+        throw new Error('Invalid JSON: ' + pe.message);
+      }
+      parsedTypeEl.textContent = Array.isArray(parsed) ? 'array' : (parsed === null ? 'null' : typeof parsed);
+      parsedPreviewEl.textContent = JSON.stringify(parsed, null, 2).slice(0, 10000); // show preview
+      // Normalize into bookingsMap
+      bookingsMap = parseBookingsData(parsed);
+      console.log('bookingsMap:', bookingsMap);
+    } catch (err){
+      const msg = `Error loading bookings.json — ${err.message}`;
+      errorEl.innerHTML = `<div class="error">⚠️ ${msg}</div>`;
+      console.error(msg, err);
+      // leave bookingsMap as empty (safe)
+      bookingsMap = {};
+    }
+  }
+
+  function displayForDate(dateStr){
+    if (!dateStr){
+      calendarEl.innerHTML = 'Please select a date.';
+      return;
+    }
+    // convert dateStr from input (YYYY-MM-DD)
+    const bookedSet = bookingsMap[dateStr] || new Set();
+    // if no bookings at all, show a small note
+    const hasAnyBookings = Object.keys(bookingsMap).length > 0;
+
+    let html = `<h2>Reservations for ${dateStr}</h2>`;
+    if (!hasAnyBookings) {
+      html += '<p><em>No bookings found in bookings.json (file may be empty).</em></p>';
+    }
+    html += '<table><thead><tr><th>Time</th><th>Status</th></tr></thead><tbody>';
+    TIMES.forEach(t => {
+      const isBooked = bookedSet.has(t);
+      html += `<tr><td>${t}</td><td class="${isBooked ? 'booked' : 'available'}">${isBooked ? 'BOOKED' : 'Available'}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    calendarEl.innerHTML = html;
+  }
+
+  // initial load + display
+  await loadBookings();
+  displayForDate(dateInput.value);
+
+  // events
+  dateInput.addEventListener('change', ()=> displayForDate(dateInput.value));
+  reloadBtn.addEventListener('click', async ()=>{
+    await loadBookings();
+    displayForDate(dateInput.value);
+  });
+
+  showRawBtn.addEventListener('click', ()=>{
+    debugEl.style.display = debugEl.style.display === 'none' ? 'block' : 'none';
+  });
+
+  // Also expose a console helper for convenience:
+  window.debugBookingsMap = ()=> { console.log('bookingsMap (preview):', bookingsMap); alert('bookingsMap logged to console'); };
+
+})();
+</script>
 </body>
 </html>
