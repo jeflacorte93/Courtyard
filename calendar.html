@@ -3,21 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pickleball Court Reservations</title>
+  <title>Pickleball Court Calendar</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
       margin: 20px;
     }
-    #calendar {
+    table {
+      width: 100%;
+      border-collapse: collapse;
       margin-top: 20px;
     }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
     .booked {
+      background-color: #ffdddd;
       color: red;
       font-weight: bold;
     }
     .available {
+      background-color: #ddffdd;
       color: green;
       font-weight: bold;
     }
@@ -54,11 +66,28 @@
     }
 
     function renderCalendar(bookings) {
-      let html = "<h2>Upcoming Reservations</h2><ul>";
-      bookings.forEach(b => {
-        html += `<li><span class="booked">${b.date} - ${b.time} : BOOKED</span></li>`;
+      const hours = [
+        "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
+        "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",
+        "04:00 PM", "05:00 PM", "06:00 PM", "07:00 PM", "08:00 PM"
+      ];
+
+      // For now, just show ONE date (example: 2025-09-10)
+      const selectedDate = "2025-09-10";
+
+      let html = `<h2>Reservations for ${selectedDate}</h2>`;
+      html += "<table><tr><th>Time</th><th>Status</th></tr>";
+
+      hours.forEach(hour => {
+        const booking = bookings.find(b => b.date === selectedDate && b.time === hour);
+        if (booking) {
+          html += `<tr><td>${hour}</td><td class="booked">BOOKED</td></tr>`;
+        } else {
+          html += `<tr><td>${hour}</td><td class="available">Available</td></tr>`;
+        }
       });
-      html += "</ul>";
+
+      html += "</table>";
       document.getElementById("calendar").innerHTML = html;
     }
 
