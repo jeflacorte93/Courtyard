@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pickleball Court – Bookings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{margin:0;font-family:sans-serif;background:#0b1320;color:#fff}
+    header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#111827}
+    a{color:#9dd7ff;text-decoration:none}
+    main{max-width:800px;margin:20px auto;padding:10px}
+    h2{margin:0 0 10px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+    .slot{border:1px solid #333;border-radius:8px;padding:10px;text-align:center;white-space:pre-line}
+    .booked{background:#3a1a1a}
+    .available{background:#1a3a1a}
+    .admin{margin-top:20px;padding:10px;border:1px solid #333;display:none}
+    button{padding:6px 10px;margin:4px;border:0;border-radius:6px;cursor:pointer}
+  </style>
+</head>
+<body>
+<header>
+  <strong>🏓 Pickleball Court</strong>
+  <nav><a href="index.html">Home</a></nav>
+</header>
+<main>
+  <h2>Pick a date</h2>
+  <input type="date" id="date" />
+  <div id="slots" class="grid"></div>
+
+  <!-- Hidden Admin Panel -->
+  <div id="adminPanel" class="admin">
+    <h3>Admin Panel</h3>
+    <p>Click a slot to toggle booking.</p>
+    <button id="downloadBtn">Download Updated Bookings</button>
+  </div>
+</main>
+
+<script>
+const OPEN_HOUR=6, CLOSE_HOUR=22, SLOT_MIN=60;
+let bookingsData={};
+let currentDateKey=null;
+let isAdmin=false;
+
+// Generate slots
+function buildSlots(){
+  const slots=[];
+  for(let h=OPEN_HOUR;h<CLOSE_HOUR;h++){
+    const start=`${String(h).padStart(2,'0')}:00`;
+    const end=`${String(h+1).padStart(2,'0')}:00`;
+    slots.push(`${start}-${end}`);
+  }
+  return slots;
+}
+const SLOTS=buildSlots();
+
+const slotsEl=document.getElementById("slots");
+const dateEl=document.getElementById("date");
+const adminPanel=document.getElementById("adminPanel");
+const downloadBtn=document.getElementById("downloadBtn");
+
+dateEl.valueAsDate=new Date();
+dateEl.addEventListener("change",renderDay);
+
+fetch("bookings.json")
+  .then(r=>r.json())
+  .then(data=>{bookingsData=data;renderDay();})
+  .catch(()=>{bookingsData={};renderDay();});
+
+// Secret admin unlock: type "unlockAdmin()" in console
+window.unlockAdmin=()=>{isAdmin=true;adminPanel.style.display="block";renderDay();console.log("✅ Admin mode unlocked");};
+
+function renderDay(){
+  const d=dateEl.valueAsDate||new Date();
+  const key=d.toISOString().split("T")[0];
+  currentDateKey=key;
+  const day=bookingsData[key]||{};
+  slotsEl.innerHTML="";
+  SLOTS.forEach(slot=>{
+    const booked=!!day[slot];
+    const div=document.createElement("div");
+    div.className=`slot ${booked?"booked":"available"}`;
+    div.textContent=slot+(booked?"\nBOOKED":"\nAvailable");
+    if(isAdmin){
+      div.style.cursor="pointer";
+      div.onclick=()=>{
+        if(booked){delete day[slot];}else{day[slot]=true;}
+        bookingsData[key]=day;
+        renderDay();
+      };
+    }
+    slotsEl.appendChild(div);
+  });
+}
+
+downloadBtn.onclick=()=>{
+  const blob=new Blob([JSON.stringify(bookingsData,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="bookings.json";a.click();
+  URL.revokeObjectURL(url);
+};
+</script>
+</body>
+</html>
