@@ -10,6 +10,11 @@
       text-align: center;
       margin: 20px;
     }
+    input[type="date"] {
+      padding: 5px;
+      margin: 10px;
+      font-size: 16px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -45,18 +50,23 @@
 </head>
 <body>
   <h1>Pickleball Court Reservation Calendar</h1>
-  <div id="calendar">Loading calendar...</div>
+
+  <label for="datePicker"><b>Select Date:</b></label>
+  <input type="date" id="datePicker">
+
+  <div id="calendar">Please select a date to see reservations.</div>
   <div id="error"></div>
 
   <script>
+    let bookings = [];
+
     async function loadBookings() {
       try {
         const response = await fetch('bookings.json');
         if (!response.ok) {
           throw new Error("Failed to fetch bookings.json (status " + response.status + ")");
         }
-        const bookings = await response.json();
-        renderCalendar(bookings);
+        bookings = await response.json();
       } catch (error) {
         document.getElementById("calendar").innerHTML = "";
         document.getElementById("error").innerHTML =
@@ -65,15 +75,12 @@
       }
     }
 
-    function renderCalendar(bookings) {
+    function renderCalendar(selectedDate) {
       const hours = [
         "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
         "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",
         "04:00 PM", "05:00 PM", "06:00 PM", "07:00 PM", "08:00 PM"
       ];
-
-      // For now, just show ONE date (example: 2025-09-10)
-      const selectedDate = "2025-09-10";
 
       let html = `<h2>Reservations for ${selectedDate}</h2>`;
       html += "<table><tr><th>Time</th><th>Status</th></tr>";
@@ -90,6 +97,13 @@
       html += "</table>";
       document.getElementById("calendar").innerHTML = html;
     }
+
+    document.getElementById("datePicker").addEventListener("change", (e) => {
+      const selectedDate = e.target.value;
+      if (selectedDate) {
+        renderCalendar(selectedDate);
+      }
+    });
 
     loadBookings();
   </script>
