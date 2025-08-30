@@ -2,73 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Pickleball Court Reservation</title>
-  <link rel="stylesheet" href="style.css"> <!-- if you already have a style.css -->
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pickleball Court Reservations</title>
   <style>
-    /* Booked slot style */
-    .booked {
-      background-color: #f8d7da;
-      color: #721c24;
-      font-weight: bold;
-      pointer-events: none; /* disables clicking */
-    }
-
-    /* Optional basic calendar style */
-    .calendar {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
       margin: 20px;
     }
-    .slot {
-      border: 1px solid #ccc;
-      padding: 10px;
-      text-align: center;
-      cursor: pointer;
+    #calendar {
+      margin-top: 20px;
     }
-    .slot:hover {
-      background-color: #e6ffe6;
+    .booked {
+      color: red;
+      font-weight: bold;
+    }
+    .available {
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      color: white;
+      background: red;
+      padding: 10px;
+      font-weight: bold;
+      border-radius: 5px;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <h1>Pickleball Court Reservation</h1>
-  <div class="calendar" id="calendar">
-    <!-- Example slots (dates + times). 
-         You can generate more dynamically later -->
-    <div class="slot" data-date="2025-09-01" data-time="09:00">Sept 1 - 09:00</div>
-    <div class="slot" data-date="2025-09-01" data-time="11:00">Sept 1 - 11:00</div>
-    <div class="slot" data-date="2025-09-02" data-time="14:00">Sept 2 - 14:00</div>
-    <div class="slot" data-date="2025-09-05" data-time="08:00">Sept 5 - 08:00</div>
-    <div class="slot" data-date="2025-09-05" data-time="10:00">Sept 5 - 10:00</div>
-    <div class="slot" data-date="2025-09-05" data-time="13:00">Sept 5 - 13:00</div>
-  </div>
+  <h1>Pickleball Court Reservation Calendar</h1>
+  <div id="calendar">Loading calendar...</div>
+  <div id="error"></div>
 
   <script>
     async function loadBookings() {
       try {
-        const response = await fetch("bookings.json");
-        const bookings = await response.json();
-
-        // Loop through booked dates and times
-        for (const [date, times] of Object.entries(bookings)) {
-          times.forEach(time => {
-            const slot = document.querySelector(
-              `[data-date='${date}'][data-time='${time}']`
-            );
-            if (slot) {
-              slot.classList.add("booked");
-              slot.innerText = `${date} ${time} - BOOKED`;
-            }
-          });
+        const response = await fetch('bookings.json');
+        if (!response.ok) {
+          throw new Error("Failed to fetch bookings.json (status " + response.status + ")");
         }
+        const bookings = await response.json();
+        renderCalendar(bookings);
       } catch (error) {
+        document.getElementById("calendar").innerHTML = "";
+        document.getElementById("error").innerHTML =
+          `<div class="error">⚠️ Error loading bookings: ${error.message}</div>`;
         console.error("Error loading bookings:", error);
       }
     }
 
-    document.addEventListener("DOMContentLoaded", loadBookings);
+    function renderCalendar(bookings) {
+      let html = "<h2>Upcoming Reservations</h2><ul>";
+      bookings.forEach(b => {
+        html += `<li><span class="booked">${b.date} - ${b.time} : BOOKED</span></li>`;
+      });
+      html += "</ul>";
+      document.getElementById("calendar").innerHTML = html;
+    }
+
+    loadBookings();
   </script>
 </body>
 </html>
